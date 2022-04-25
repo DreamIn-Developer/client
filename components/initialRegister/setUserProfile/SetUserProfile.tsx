@@ -4,7 +4,7 @@ import * as S from './SetUserProfile.style';
 import SetUserInterest from '../setUserInterest/SetUserInterest';
 import CompleteRegister from '../completeRegister/CompleteRegister';
 
-import ImageUploadWrapper from '../../common/imageUploadWrapper/ImageUploadWrapper';
+import ImageUploadWrapper from '../../common/ImageUploadWrapper';
 import Button from '../button/Button';
 
 import { useRecoilValue } from 'recoil';
