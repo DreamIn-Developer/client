@@ -15,10 +15,10 @@
     "jsx": "preserve",
     "baseUrl": ".",
     "paths": {
-      "@components/*": ["src/components/*"],
-      "@pages/*": ["pages/*"],
-      "@containers/*": ["src/containers/*"],
-      "@assets/*": ["src/assets/*"]
+      "@components/*": ["./components/*"],
+      "@pages/*": ["./pages/*"],
+      "@images/*": ["./public/images/*"],
+      "@recoil/*": ["./recoil/*"]
     },
     "rootDir": ".",
     "incremental": true

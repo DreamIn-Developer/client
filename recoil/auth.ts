@@ -11,6 +11,7 @@ export interface UserRegisterInfoType {
   nickname: string;
   description: string;
   mainCategory: UserCategoryType[];
+  banner: string | ArrayBuffer | null;
 }
 
 export const userRegisterInfoState = atom<UserRegisterInfoType>({
@@ -21,6 +22,7 @@ export const userRegisterInfoState = atom<UserRegisterInfoType>({
     nickname: '',
     description: '',
     mainCategory: [],
+    banner: null,
   },
 });
 

@@ -6,14 +6,14 @@ import type { UserRegisterInfoType } from '../recoil/auth';
 
 import { readFile } from '../utils/readFile';
 
-const useImageHandle = () => {
+const useImageHandle = (property: string) => {
   const [userInfo, setUserInfo] = useRecoilState<UserRegisterInfoType>(userRegisterInfoState);
-
+  console.log(userInfo);
   const storeImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const currentFile = (e.target as HTMLInputElement).files[0];
     const readedFile = currentFile && (await readFile(currentFile));
 
-    const uploadedUserProfileInfo = { ...userInfo, userProfile: readedFile };
+    const uploadedUserProfileInfo = { ...userInfo, [property]: readedFile };
 
     setUserInfo(uploadedUserProfileInfo);
   };
