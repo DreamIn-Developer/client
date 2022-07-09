@@ -9,6 +9,7 @@ import ExportMemberButton from '../ExportMemberButton';
 import MessageButton from '../MessageButton';
 import { useRecoilState } from 'recoil';
 import { userInfoState } from 'recoil/auth';
+import membersApi from 'apis/members.api';
 interface Props {
   teamId: string;
   onOffHandler: React.Dispatch<React.SetStateAction<boolean>>;
@@ -17,7 +18,9 @@ interface Props {
 const TeamMemberModal = ({ teamId, onOffHandler }: Props) => {
   const queryClient = useQueryClient();
   const [userState] = useRecoilState(userInfoState);
-  const { isLoading, isError, error, data } = useQuery(['team-member', teamId], () => teamsApi.getTeamMembers(teamId));
+  const { isLoading, isError, error, data } = useQuery(['team-member', teamId], () =>
+    teamsApi.getTeamMembersManage(teamId)
+  );
   const { mutate: deleteTeam } = useMutation(() => teamsApi.deleteTeam(teamId, { isRequiredLogin: true }), {
     onSuccess: () => {
       onOffHandler(false);
@@ -46,12 +49,12 @@ const TeamMemberModal = ({ teamId, onOffHandler }: Props) => {
         <ListContainer>
           <div>
             {data
-              .filter((member) => member.user !== userState.id)
+              .filter((member) => member.userId !== userState.id)
               .map((member) => (
                 <ManagedMemberCard
-                  key={member.user}
+                  key={member.userId}
                   memberInfo={member}
-                  leftButton={<ExportMemberButton />}
+                  leftButton={<ExportMemberButton memberId={member.memberId} teamId={teamId} />}
                   rightButton={<MessageButton />}
                 />
               ))}

@@ -1,28 +1,56 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import Image from 'next/image';
 import * as S from './SetUserProfile.style';
+import usersApi from 'apis/users.api';
 
 import SetUserInterest from '../SetUserInterest';
-import CompleteRegister from '../CompleteRegister';
-
-import ImageUploadWrapper from 'components/common/ImageUploadWrapper';
-import Button from '../Button';
-
-import { useRecoilValue } from 'recoil';
-import { userRegisterInfoState } from 'recoil/auth';
-import type { UserRegisterInfoType } from 'recoil/auth';
 
 import useModal from 'hooks/useModal';
-import useUserInfoInput from 'hooks/useUserInfoInput';
-import Image from 'next/image';
+import useDebounce from 'hooks/useDebounce';
+import { useUploadImage } from 'hooks/useUploadImage';
+import editUserData from '../userEdit.api';
+
+interface checkUserNameResult {
+  message?: string;
+}
 
 const SetUserProfile: React.FC = () => {
-  const { isNext, navigateToNext, isSkip, skip } = useModal();
-  const { userProfile } = useRecoilValue<UserRegisterInfoType>(userRegisterInfoState);
+  const { skip, isSkip } = useModal();
+  const [imgUrl, setImgUrl, storeImage] = useUploadImage();
+  const [nickname, setNickname] = useState('');
+  const [isNicknameLoading, setIsNicknameLoading] = useState(true);
+  const [isNicknameUnique, setisNicknameUnique] = useState(false);
+  const userData = { nickname, profileImage: imgUrl };
+  const debounceNickname = useDebounce({ value: nickname });
 
-  const { email, nickname, isEmailCorrect, status, handleUserInfo } = useUserInfoInput();
+  const handleChangeProfileFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    storeImage(e);
+  };
 
-  if (isNext) return <SetUserInterest />;
-  else if (isSkip) return <CompleteRegister />;
+  const handleNicknameInputValue = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setisNicknameUnique(false);
+    setIsNicknameLoading(true);
+    setNickname(e.target.value);
+  };
+
+  useEffect(() => {
+    const checkNickname = async () => {
+      if (!nickname) return;
+      const result: checkUserNameResult = await usersApi.checkUserName(nickname);
+      if (result.message === 'check nickname ok') {
+        setisNicknameUnique(true);
+        setIsNicknameLoading(false);
+      }
+    };
+    checkNickname();
+  }, [debounceNickname]);
+
+  const confirmSetting = () => {
+    skip();
+    editUserData(userData);
+  };
+
+  if (isSkip) return <SetUserInterest />;
   else
     return (
       <S.Wrapper>
@@ -33,38 +61,32 @@ const SetUserProfile: React.FC = () => {
           </S.SubInfo>
         </S.InfoHeader>
         <S.ProfileWrapper>
-          <ImageUploadWrapper name="profile">
+          <S.ProfileLabel htmlFor="file-input">
             <S.ProfileIcon
               alt="icon-profile"
-              src={`${userProfile ? userProfile : '/images/icon-profile.svg'}`}
+              src={`${imgUrl ? imgUrl : '/images/icon-profile.svg'}`}
               width="120px"
               height="120px"
             />
-          </ImageUploadWrapper>
-          <S.CameraIconWraper>
-            <Image alt="icon-camera" src="/images/icon-camera.svg" width="28px" height="27px" />
-          </S.CameraIconWraper>
+            <S.FileInput id="file-input" type="file" name="file-input" onChange={handleChangeProfileFile} />
+            <S.CameraIconWraper>
+              <Image alt="icon-camera" src="/images/icon-camera.svg" width="30px" height="29px" />
+            </S.CameraIconWraper>
+          </S.ProfileLabel>
         </S.ProfileWrapper>
-        <S.UserInfoInputWrapper onChange={handleUserInfo}>
-          <S.UserInfoInputInner>
-            <S.InfoLabel htmlFor="email">이메일</S.InfoLabel>
-            <S.UserInfoInput id="email" placeholder="이메일을 입력해 주세요." />
-            <S.Alert>{email.length !== 0 && !isEmailCorrect && '사용할 수 없는 이메일 입니다.'}</S.Alert>
-          </S.UserInfoInputInner>
+
+        <S.UserInfoInputWrapper>
           <S.UserInfoInputInner>
             <S.InfoLabel htmlFor="nickname">닉네임</S.InfoLabel>
-            <S.UserInfoInput id="nickname" placeholder="닉네임을 입력해 주세요." />
+            <S.UserInfoInput id="nickname" placeholder="닉네임을 입력해 주세요." onChange={handleNicknameInputValue} />
             <S.Alert>
-              {nickname?.length === 0
-                ? ''
-                : status === 'success'
-                ? '사용 가능한 닉네임 입니다.'
-                : '중복되는 닉네임 입니다.'}
+              {isNicknameLoading ? '' : isNicknameUnique ? '사용 가능한 닉네임 입니다.' : '중복되는 닉네임 입니다.'}
             </S.Alert>
           </S.UserInfoInputInner>
         </S.UserInfoInputWrapper>
-        <Button sort="setUserProfile" name="관심분야 설정하러가기" navigateToNext={navigateToNext} />
-        <S.SkipButton onClick={skip}>다음에 하기</S.SkipButton>
+        <S.Button disabled={!isNicknameUnique} onClick={confirmSetting}>
+          관심분야 설정하러가기
+        </S.Button>
       </S.Wrapper>
     );
 };

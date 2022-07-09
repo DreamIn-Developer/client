@@ -5,11 +5,9 @@ import Image from 'next/image';
 import Layout from 'components/Layout';
 import Banner from 'components/Profile/Banner';
 
-import ItemList from 'components/Profile/ItemList';
-
 import { ProfileWrapper } from 'components/common/Atomic/Profile';
 import { TabButton } from 'components/common/Atomic/Tabs/TabButton';
-import { camera_icon, team_profile_icon } from 'constants/imgUrl';
+import { camera_icon, team_nickname_icon, team_profile_icon } from 'constants/imgUrl';
 import { teamTabMenuArr } from 'constants/tabMenu';
 
 import { useRouter } from 'next/router';
@@ -22,8 +20,8 @@ import useForm from 'hooks/useForm';
 import { TeamEditForm } from 'types/team';
 import ProfileEdit from 'components/Profile/ProfileEdit';
 import UploadProduct from 'components/Profile/UploadProduct';
-import ImageUploadWrapper from 'components/common/ImageUploadWrapper';
-import QuitTeam from 'components/Team/Manangement/QuitTeam';
+
+import QuitTeam from 'components/Team/Profile/QuitTeam';
 import { teamEditForm } from 'utils/teamEditForm';
 import TeamPostList from 'components/Team/Profile/TeamPostList';
 import MemberList from 'components/Team/Profile/MemberList';
@@ -32,6 +30,9 @@ import { useUploadImage } from 'hooks/useUploadImage';
 import AddImage from 'components/Profile/AddImage';
 import { useRecoilState } from 'recoil';
 import { userInfoState } from 'recoil/auth';
+import { editPostState } from 'recoil/editRecoil';
+import TeamProfileImage from 'components/Team/Profile/TeamProfileImg';
+import TeamNickname from 'components/Team/Profile/TeamNickname';
 
 //props로 id 넘겨주기
 
@@ -41,9 +42,14 @@ const TeamProfile = () => {
   const { id } = router.query;
   const [editMode, setEditMode] = useState(false);
   const [currentTab, setCurrentTab] = useState('postCount');
-  const [values, setValues, handler] = useForm<TeamEditForm>();
+  const [values, setValues, handler] = useForm<TeamEditForm>({
+    title: '',
+    description: '',
+    team_profile_image: '',
+    background_image: '',
+  });
   const [userState] = useRecoilState(userInfoState);
-
+  const [editPost, setEditPost] = useRecoilState(editPostState);
   const [bannerImg, setBannerImg, bannerImgUpload] = useUploadImage();
   const [profileImg, setProfileImg, profileImgUpload] = useUploadImage();
 
@@ -75,14 +81,16 @@ const TeamProfile = () => {
   const { mutate: teamInfoMutate } = useMutation(
     () => teamsApi.editTeamProfile(id, values, { isRequiredLogin: true }),
     {
-      onSuccess: ({ data }) => {
-        queryClient.setQueryData(['team-profile', id], data);
+      onSuccess: () => {
+        queryClient.invalidateQueries(['team-profile', id]);
       },
     }
   );
-  // const [values, setValues, handler] = useForm<TeamEditForm>();
 
-  //Suspense를 사용하게 된다면, useQuery를 여러개 선언하는것은 사용할 수 없으므로, useQueries를 사용해야함
+  const postEditHandler = (id: number) => (e: MouseEvent) => {
+    e.stopPropagation();
+    setEditPost({ ...editPost, id });
+  };
 
   const editModeOnOff = useCallback(
     (flag: boolean) => () => {
@@ -109,8 +117,15 @@ const TeamProfile = () => {
     [currentTab]
   );
 
+  const initProfile = () => {
+    setProfileImg('');
+    setBannerImg('');
+    setValues({ title: '', description: '', team_profile_image: '', background_image: '' });
+  };
   useEffect(() => {
+    window.addEventListener('click', postEditHandler(-1));
     return () => {
+      window.removeEventListener('click', postEditHandler(-1));
       teamTabMenuArr.forEach((tab) => {
         if (tab.id === 'memberCount') tab.isActive = false;
         else tab.isActive = true;
@@ -140,52 +155,30 @@ const TeamProfile = () => {
 
   return (
     <Layout>
-      {editMode ? (
-        <>
-          <AddImage
-            bannerImg={bannerImg}
-            bannerImgUpload={bannerImgUpload}
-            editMode={editMode}
-            text={!editMode ? '프로필 배너를 추가해주세요.' : '배너 변경하기'}
-          />
-          <button onClick={() => setBannerImg('')}>초기화</button>
-        </>
-      ) : (
-        <Banner bannerImg={profileData?.backgroundImage} />
-      )}
-
+      <AddImage
+        originImg={profileData?.backgroundImage}
+        bannerImg={bannerImg}
+        bannerImgUpload={bannerImgUpload}
+        editMode={editMode}
+        isTeamPage={false}
+      />
       <InfoWrapper>
         <div>
-          {editMode ? (
-            <>
-              <ProfileLabel htmlFor="file-input">
-                <ProfileWrapper>
-                  <ImgWrapper
-                    alt="icon-profile"
-                    src={profileImg.length ? profileImg : team_profile_icon}
-                    width={120}
-                    height={120}
-                  />
-                  <CameraIconWrapper>
-                    <Image alt="icon-camera" src={camera_icon} width={24} height={24} />
-                  </CameraIconWrapper>
-                </ProfileWrapper>
-                <FileInput id="file-input" type="file" name="team_profile_image" onChange={profileImgUpload} />
-              </ProfileLabel>
-            </>
-          ) : (
-            <ProfileWrapper>
-              <ImgWrapper
-                alt="icon-profile"
-                src={profileData?.teamProfileImage ? profileData?.teamProfileImage : team_profile_icon}
-                width={120}
-                height={120}
-              />
-            </ProfileWrapper>
-          )}
+          <TeamProfileImage
+            editMode={editMode}
+            originImg={profileData.teamProfileImage}
+            profileImg={profileImg}
+            profileImgUpload={profileImgUpload}
+          />
         </div>
         <InfoSection>
-          <h1>{profileData?.title}</h1>
+          <TeamNickname
+            editMode={editMode}
+            originNickname={profileData.title}
+            changedNickname={values.title}
+            handler={handler}
+            initProfile={initProfile}
+          />
           <InfoDescription>
             {editMode ? (
               <DescriptionArea name="description" onChange={handler} placeholder="사용자 소개를 입력해주세요." />
@@ -198,13 +191,13 @@ const TeamProfile = () => {
           {profileData.leader === userState.id ? (
             <>
               <ProfileEdit editMode={editMode} editModeOnOff={editModeOnOff} />
-              {!editMode && <UploadProduct />}
+              {!editMode && <UploadProduct isTeam={true} />}
             </>
-          ) : membersData.map((member) => member.user).includes(userState.id) ? (
-            <QuitTeam />
+          ) : membersData.find((member) => member.userId === userState.id) ? (
+            <QuitTeam memberId={membersData.find((member) => member.userId === userState.id).memberId} teamId={id} />
           ) : (
             <>
-              <ApplyTeam />
+              <ApplyTeam teamId={id} />
               <Message />
             </>
           )}
@@ -246,18 +239,14 @@ export const getServerSideProps = async (context: GetStaticPropsContext) => {
 
 export default TeamProfile;
 
-export const InfoWrapper = styled.div`
+const InfoWrapper = styled.div`
   padding: 24px;
   position: relative;
   margin-bottom: 80px;
   display: flex;
 `;
 
-export const ImgWrapper = styled(Image)`
-  border-radius: 12px;
-`;
-
-export const InfoSection = styled.div`
+const InfoSection = styled.div`
   margin-left: 24px;
   width: 610px;
 
@@ -267,10 +256,15 @@ export const InfoSection = styled.div`
     font-weight: ${({ theme }) => theme.fontWeight.bold};
     color: ${({ theme }) => theme.color.profileNameBlack};
     margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    & span {
+      margin-left: 5px !important;
+    }
   }
 `;
 
-export const InfoDescription = styled.div`
+const InfoDescription = styled.div`
   display: flex;
   flex-direction: column;
   flex-wrap: wrap;
@@ -279,27 +273,11 @@ export const InfoDescription = styled.div`
     color: ${({ theme }) => theme.color.gray_700};
     font-weight: ${({ theme }) => theme.fontWeight.medium};
     font-size: 12px;
-    line-height: 1.416666;
+    line-height: 1.416666;♻️
   }
 `;
 
-export const FollowInfo = styled.div`
-  margin-bottom: 8px;
-  span {
-    font-weight: 400;
-    font-size: 12px;
-    line-height: 1.833333;
-    letter-spacing: -0.01em;
-    color: ${({ theme }) => theme.color.gray_700};
-    margin-right: 16px;
-  }
-
-  span:nth-child(2n-1) {
-    margin-right: 4px;
-  }
-`;
-
-export const DescriptionArea = styled.textarea`
+const DescriptionArea = styled.textarea`
   box-sizing: border-box;
   resize: none;
   padding: 8px;
@@ -324,22 +302,30 @@ export const DescriptionArea = styled.textarea`
   }
 `;
 
-export const InfoAside = styled.div`
+const InfoAside = styled.div`
   position: absolute;
   right: 24px;
 `;
 
-export const CameraIconWrapper = styled.div`
-  width: 36px;
-  height: 36px;
-  position: absolute;
-  left: -18px;
-  bottom: -8px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 6px;
-  border: 2px solid #ffffff;
-  border-radius: 50%;
-  background-color: ${({ theme }) => theme.color.gray_700};
+const EditNickname = styled.input`
+  width: 240px;
+  height: 26px;
+  padding: 8px;
+  border: 1px solid ${({ theme }) => theme.color.gray_400};
+  margin-bottom: 16px;
+  &::placeholder {
+    font-family: 'Noto Sans KR', sans serif;
+    font-weight: ${({ theme }) => theme.fontWeight.medium};
+    font-size: 12px;
+    line-height: 1.416666;
+    color: ${({ theme }) => theme.color.gray_400};
+  }
+`;
+
+const InitButton = styled.button`
+  font-weight: 400;
+  font-size: 12px;
+  line-height: 1.25;
+  color: ${({ theme }) => theme.color.gray_500};
+  margin-left: 16px;
 `;

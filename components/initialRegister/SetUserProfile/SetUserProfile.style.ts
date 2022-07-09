@@ -30,7 +30,6 @@ export const SubInfo = styled.p`
 export const ProfileWrapper = styled.figure`
   position: relative;
   margin-top: 61.25px;
-  cursor: pointer;
 `;
 
 export const ProfileLabel = styled.label`
@@ -47,19 +46,21 @@ export const ProfileIcon = styled(Image)`
 
 export const CameraIconWraper = styled.div`
   position: absolute;
-  top: 2.5px;
-  left: 312.99px;
+  bottom: 4px;
+  left: 280px;
   display: flex;
   justify-content: center;
   align-items: center;
-  padding: 8px 7px;
+  padding: 5px 4px;
   border: 3px solid #ffffff;
   border-radius: 50%;
-  background-color: #616161;
+  background-color: #424242;
 `;
 
 export const UserInfoInputWrapper = styled.form`
-  margin: 50.75px 108px 90px;
+  display: flex;
+  justify-content: center;
+  margin: 24px 0 32px 0;
 `;
 
 export const UserInfoInputInner = styled.div`
@@ -115,4 +116,30 @@ export const SkipButton = styled.p`
   letter-spacing: 0.15px;
   color: #616161;
   cursor: pointer;
+`;
+
+export const Button = styled.button`
+  min-width: 100%;
+  min-height: 56px;
+  padding: 16px 165px;
+  border: none;
+  border-radius: 4px;
+  font-size: 20px;
+  font-weight: 500;
+  line-height: 24px;
+  letter-spacing: 0.15px;
+  background-color: #abf066;
+  color: #000000;
+  outline: none;
+  cursor: pointer;
+
+  &:hover {
+    background-color: #bdf486;
+  }
+
+  &:disabled {
+    color: #b0b0b0;
+    background-color: #eeeeee;
+    cursor: default;
+  }
 `;

@@ -4,28 +4,49 @@ import { DefaultButton } from 'components/common/Atomic/Tabs/Button';
 import MainCard from 'components/common/MainCard';
 import Image from 'next/image';
 import Layout from 'components/Layout';
+import postsApi from 'apis/posts.api';
+import { MainPostType } from 'types/post';
+import { useQuery } from 'react-query';
+import { isLoggedIn } from 'utils/isLoggedIn';
 
-const Index = () => {
+const PostCards = () => {
+  const getPosts = async () => {
+    const data = await postsApi.getMainPosts({ isRequiredLogin: isLoggedIn() });
+    return data;
+  };
+  const { data, isLoading } = useQuery<MainPostType>('post', getPosts, { refetchOnWindowFocus: false });
+
   return (
     <Layout>
       <MainHeader>
-        <SearchBox>
+        <SearchBox onClick={() => alert('❗ 아직 구현되지 않은 기능입니다.')}>
           <SearchInput placeholder="검색어를 입력해주세요." />
           <SearchIcon>
             <Image src={'/images/search.svg'} width="24" height="24" />
           </SearchIcon>
         </SearchBox>
         <FlexBox>
-          <FilterBtn>전체보기</FilterBtn>
-          <FilterBtn>카테고리</FilterBtn>
-          <FilterBtn>카테고리</FilterBtn>
-          <FilterBtn>카테고리</FilterBtn>
+          <FilterBtn onClick={() => alert('❗ 아직 구현되지 않은 기능입니다.')}>전체보기</FilterBtn>
+          <FilterBtn onClick={() => alert('❗ 아직 구현되지 않은 기능입니다.')}>카테고리</FilterBtn>
+          <FilterBtn onClick={() => alert('❗ 아직 구현되지 않은 기능입니다.')}>카테고리</FilterBtn>
+          <FilterBtn onClick={() => alert('❗ 아직 구현되지 않은 기능입니다.')}>카테고리</FilterBtn>
         </FlexBox>
       </MainHeader>
       <MainContent>
-        {Array.from({ length: 12 }, () => (
-          <MainCard />
-        ))}
+        {isLoading || !data.userPost?.concat(data.teamPost).length
+          ? 'Loading..'
+          : data.userPost
+              .concat(data.teamPost)
+              .sort(() => Math.random() - 0.5)
+              .map((post) => {
+                return (
+                  <MainCard
+                    post={post}
+                    key={post.team ? `team${post.id}` : `user${post.id}`}
+                    type={post.team ? 'team' : 'user'}
+                  />
+                );
+              })}
       </MainContent>
     </Layout>
   );
@@ -71,7 +92,7 @@ const FilterBtn = styled(DefaultButton)`
 
 const MainContent = styled(FlexBox)`
   flex-wrap: wrap;
-  justify-content: space-between;
+  justify-content: space-around;
 `;
 
-export default Index;
+export default PostCards;

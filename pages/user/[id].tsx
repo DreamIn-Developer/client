@@ -1,64 +1,86 @@
 import { useCallback, useEffect, useState } from 'react';
+import { GetStaticPropsContext } from 'next';
 import { useQuery, QueryClient, dehydrate, useMutation, useQueryClient } from 'react-query';
-import Layout from 'components/Layout';
-import Banner from 'components/Profile/Banner';
-import ItemList from 'components/Profile/ItemList';
-import { TabButton } from 'components/common/Atomic/Tabs/TabButton';
-import { userTabMenuArr } from 'constants/tabMenu';
-import usersApi from 'apis/users.api';
 import { useRouter } from 'next/router';
+import styled from 'styled-components';
 import Image from 'next/image';
-import { CameraIcon, CameraIconWrapper, ProfileIcon, ProfileWrapper } from 'components/common/Atomic/Profile';
-import { camera_icon, default_profile } from 'constants/imgUrl';
-import { numberWithCommas } from 'utils/numberWithCommas';
-import { Keyword } from 'components/common/Atomic/Tabs/Keyword';
+import { useRecoilState } from 'recoil';
+import Layout from 'components/Layout';
+import { TabButton } from 'components/common/Atomic/Tabs/TabButton';
+import { Keyword, TempKeyword } from 'components/common/Atomic/Tabs/Keyword';
 import Following from 'components/User/Following';
 import Message from 'components/User/Message';
-import styled from 'styled-components';
-import { GetStaticPropsContext } from 'next';
-import { useUploadImage } from 'hooks/useUploadImage';
-import useForm from 'hooks/useForm';
-import { UserEditForm } from 'types/user';
-import { userEditForm } from 'utils/userEditForm';
 import AddImage from 'components/Profile/AddImage';
-import { FileInput, ProfileLabel } from 'components/common/Atomic/ImageInput';
-import { useRecoilState } from 'recoil';
-import { userInfoState } from 'recoil/auth';
 import ProfileEdit from 'components/Profile/ProfileEdit';
 import UploadProduct from 'components/Profile/UploadProduct';
+import PostList from 'components/User/PostList';
+import ScrapList from 'components/User/ScrapList';
+import InterestModal from 'components/User/InterestModal';
+import usersApi from 'apis/users.api';
+import { userEditForm } from 'utils/userEditForm';
+import { numberWithCommas } from 'utils/numberWithCommas';
+import { userInfoState } from 'recoil/auth';
+import { editPostState } from 'recoil/editRecoil';
+import useForm from 'hooks/useForm';
+import { useUploadImage } from 'hooks/useUploadImage';
+import { UserEditForm } from 'types/user';
+import { add_interest_icon, sub_interest_icon } from 'constants/imgUrl';
+import { userTabMenuArr } from 'constants/tabMenu';
+import ProfileImage from 'components/User/ProfileImage';
+import Nickname from 'components/User/NickName';
 
 const UserProfile: React.FC = () => {
   const router = useRouter();
   const { id } = router.query;
   const queryClient = useQueryClient();
   const [userState] = useRecoilState(userInfoState);
+  const [interestOnOff, setInterestOnOff] = useState(false);
   const [editMode, setEditMode] = useState<boolean>(false);
   const [currentTab, setCurrentTab] = useState('postCount');
-  const [values, setValues, handler] = useForm<UserEditForm | null>(null);
+  const [values, setValues, handler] = useForm<UserEditForm>({
+    email: '',
+    nickname: '',
+    description: '',
+    profileImage: '',
+    backgroundImage: '',
+    categories: '',
+  });
   const [bannerImg, setBannerImg, bannerImgUpload] = useUploadImage();
   const [profileImg, setProfileImg, profileImgUpload] = useUploadImage();
-
-  const { isLoading, isError, error, data } = useQuery(['user-profile', id], () => usersApi.checkUsers(id), {
-    onSuccess: (data) => {
-      if (!editMode) {
-        setValues(userEditForm(data));
-        setBannerImg(data.backgroundImage);
-        setProfileImg(data.profileImage);
-      }
-    },
-    onError: (error) => {
-      console.log(error);
-    },
-  }); // useQuery로 유저정보 받아옴.
+  const [editPost, setEditPost] = useRecoilState(editPostState);
+  const [interestList, setInterestList] = useState<{ id: number; name: string }[]>([]);
+  const { isError, error, data } = useQuery(
+    ['user-profile', id],
+    () => usersApi.checkUsers(id, { isRequiredLogin: sessionStorage.getItem('jwtToken') ? true : false }),
+    {
+      onSuccess: (data) => {
+        if (!editMode) {
+          setValues(userEditForm(data));
+          setBannerImg(data.backgroundImage);
+          setProfileImg(data.profileImage);
+          setInterestList(data.categories);
+        }
+      },
+      onError: (error) => {
+        console.log(error);
+      },
+    }
+  ); // useQuery로 유저정보 받아옴.
 
   const { mutate: userInfoMutate } = useMutation(
     () => usersApi.editUser(sessionStorage.getItem('id'), values, { isRequiredLogin: true }),
     {
-      onSuccess: ({ data }) => {
-        queryClient.setQueryData('user-profile', data);
+      onSuccess: () => {
+        queryClient.invalidateQueries(['user-profile', id]);
       },
     }
   );
+
+  const postEditHandler = (id: number) => (e: MouseEvent) => {
+    e.stopPropagation();
+    setEditPost({ ...editPost, id });
+  };
+
   const editModeOnOff = useCallback(
     (flag: boolean) => () => {
       setEditMode(flag);
@@ -82,14 +104,31 @@ const UserProfile: React.FC = () => {
     },
     [currentTab]
   );
-  // useEffect(() => {
-  //   return () => {
-  //     teamTabMenuArr.forEach((tab) => {
-  //       if (tab.id === 'memberCount') tab.isActive = false;
-  //       else tab.isActive = true;
-  //     });
-  //   };
-  // }, []);
+
+  const initProfile = () => {
+    setProfileImg('');
+    setBannerImg('');
+    setValues({ nickname: '', description: '', profileImage: '', backgroundImage: '' });
+  };
+
+  const interestHandler = (flag: boolean) => () => {
+    setInterestOnOff(flag);
+  };
+
+  const deleteInterest = (id: number) => () => {
+    setInterestList(interestList.filter((interest) => interest.id !== id));
+  };
+
+  useEffect(() => {
+    window.addEventListener('click', postEditHandler(-1));
+    return () => {
+      window.removeEventListener('click', postEditHandler(-1));
+      userTabMenuArr.forEach((tab) => {
+        if (tab.id === 'scrapCount') tab.isActive = false;
+        else tab.isActive = true;
+      });
+    };
+  }, []);
 
   useEffect(() => {
     setValues({ ...values, profileImage: profileImg });
@@ -99,65 +138,64 @@ const UserProfile: React.FC = () => {
     setValues({ ...values, backgroundImage: bannerImg });
   }, [bannerImg]);
 
+  useEffect(() => {
+    const list = interestList.map((el) => el.id).join(',');
+    setValues({ ...values, categories: list });
+  }, [interestList]);
+
   if (isError) {
     return <h1>{error}</h1>;
   }
   return (
     <Layout>
-      {editMode ? (
-        <>
-          <AddImage
-            bannerImg={bannerImg}
-            bannerImgUpload={bannerImgUpload}
-            editMode={editMode}
-            text={!editMode ? '프로필 배너를 추가해주세요.' : '배너 변경하기'}
-          />
-          <button onClick={() => setBannerImg('')}>초기화</button>
-        </>
-      ) : (
-        <>
-          <Banner bannerImg={data?.backgroundImage} />
-        </>
+      {interestOnOff && (
+        <InterestModal
+          setInterestOnOff={setInterestOnOff}
+          interestList={interestList}
+          setInterestList={setInterestList}
+        />
       )}
+      <AddImage
+        originImg={data?.backgroundImage}
+        bannerImg={bannerImg}
+        bannerImgUpload={bannerImgUpload}
+        editMode={editMode}
+        isTeamPage={false}
+      />
       <InfoWrapper>
-        <ProfileImg>
-          <ProfileWrapper>
-            {editMode ? (
-              <>
-                <ProfileLabel htmlFor="file-input">
-                  <ProfileWrapper>
-                    <ProfileIcon
-                      alt="icon-profile"
-                      src={profileImg.length > 0 ? profileImg : default_profile}
-                      width={116}
-                      height={116}
-                    />
-                    <CameraIconWrapper direction="left">
-                      <CameraIcon alt="icon-camera" src={camera_icon} width={24} height={24} />
-                    </CameraIconWrapper>
-                  </ProfileWrapper>
-                </ProfileLabel>
-                <FileInput id="file-input" type="file" name="profileImage" onChange={profileImgUpload} />
-              </>
-            ) : (
-              <ProfileWrapper>
-                <ImgWrapper
-                  alt="icon-profile"
-                  src={!data?.profileImage ? default_profile : data?.profileImage}
-                  width={116}
-                  height={116}
-                />
-              </ProfileWrapper>
-            )}
-          </ProfileWrapper>
-        </ProfileImg>
+        <ProfileImage
+          editMode={editMode}
+          originImg={data?.profileImage}
+          profileImg={profileImg}
+          profileImgUpload={profileImgUpload}
+        />
         <InfoSection>
-          <h1>{data?.nickname}</h1>
+          <Nickname
+            editMode={editMode}
+            originNickname={data?.nickname}
+            changedNickname={values.nickname}
+            handler={handler}
+            initProfile={initProfile}
+          />
           <InfoDescription>
             <div>
-              {data?.categories.map((ability) => (
-                <Keyword key={ability.id}>{ability.name}</Keyword>
-              ))}
+              {editMode ? (
+                <>
+                  {interestList.map((ability) => (
+                    <TempKeyword key={ability.id}>
+                      {ability.name}
+                      <button onClick={deleteInterest(ability.id)}>
+                        <Image src={sub_interest_icon} width={16} height={16} />
+                      </button>
+                    </TempKeyword>
+                  ))}
+                  <TempKeyword style={{ cursor: 'pointer' }} onClick={interestHandler(true)}>
+                    <Image src={add_interest_icon} width={16} height={16} />
+                  </TempKeyword>
+                </>
+              ) : (
+                data?.categories.map((ability) => <Keyword key={ability.id}>{ability.name}</Keyword>)
+              )}
             </div>
             <FollowInfo>
               <span>팔로워</span>
@@ -166,7 +204,12 @@ const UserProfile: React.FC = () => {
               <span>{numberWithCommas(Number(data?.followingCount))}</span>
             </FollowInfo>
             {editMode ? (
-              <DescriptionArea name="description" onChange={handler} placeholder="사용자 소개를 입력해주세요." />
+              <DescriptionArea
+                name="description"
+                onChange={handler}
+                placeholder="사용자 소개를 입력해주세요."
+                value={values.description}
+              />
             ) : (
               <p>{data?.description}</p>
             )}
@@ -176,11 +219,11 @@ const UserProfile: React.FC = () => {
           {data.id === userState.id ? (
             <>
               <ProfileEdit editMode={editMode} editModeOnOff={editModeOnOff} />
-              {!editMode && <UploadProduct />}
+              {!editMode && <UploadProduct isTeam={false} />}
             </>
           ) : (
             <>
-              <Following userId={id} />
+              <Following userId={id} isFollowing={data.isFollowed} />
               <Message />
             </>
           )}
@@ -194,8 +237,10 @@ const UserProfile: React.FC = () => {
           </TabButton>
         ))}
       </div>
-      {/* {currentTab === 'post' && <ItemList itemList={Items[currentTab]} />}
-      {currentTab === 'scrap' && <ItemList itemList={Items[currentTab]} />} */}
+      {currentTab === 'postCount' && (
+        <PostList userId={id} isLeader={userState.id === Number(id)} editMode={editMode} />
+      )}
+      {currentTab === 'scrapCount' && <ScrapList userId={id} isLeader={false} editMode={editMode} />}
     </Layout>
   );
 };
@@ -205,7 +250,7 @@ export const getServerSideProps = async (context: GetStaticPropsContext) => {
     const queryClient = new QueryClient();
     const id = context.params?.id as string;
 
-    await queryClient.prefetchQuery(['user-profile', id], ({ queryKey }) => usersApi.checkUsers(queryKey[1]));
+    await queryClient.prefetchQuery(['user-profile', id], ({ queryKey }) => usersApi.getUserInfo(Number(queryKey[1])));
 
     return {
       props: {
@@ -220,20 +265,14 @@ export const getServerSideProps = async (context: GetStaticPropsContext) => {
 
 export default UserProfile;
 
-export const InfoWrapper = styled.div`
+const InfoWrapper = styled.div`
   padding: 24px;
   position: relative;
   margin-bottom: 80px;
   display: flex;
 `;
 
-export const ProfileImg = styled.div``;
-
-export const ImgWrapper = styled(Image)`
-  border-radius: 50%;
-`;
-
-export const InfoSection = styled.div`
+const InfoSection = styled.div`
   margin-left: 24px;
   width: 610px;
 
@@ -245,11 +284,14 @@ export const InfoSection = styled.div`
     margin-bottom: 16px;
   }
 `;
-export const InfoDescription = styled.div`
+const InfoDescription = styled.div`
   display: flex;
   flex-direction: column;
   flex-wrap: wrap;
 
+  & > div {
+    display: flex;
+  }
   p {
     color: ${({ theme }) => theme.color.gray_700};
     font-weight: ${({ theme }) => theme.fontWeight.medium};
@@ -258,7 +300,7 @@ export const InfoDescription = styled.div`
   }
 `;
 
-export const FollowInfo = styled.div`
+const FollowInfo = styled.div`
   margin-bottom: 8px;
   span {
     font-weight: 400;
@@ -274,7 +316,7 @@ export const FollowInfo = styled.div`
   }
 `;
 
-export const DescriptionArea = styled.textarea`
+const DescriptionArea = styled.textarea`
   box-sizing: border-box;
   resize: none;
   padding: 8px;
@@ -299,7 +341,7 @@ export const DescriptionArea = styled.textarea`
   }
 `;
 
-export const InfoAside = styled.div`
+const InfoAside = styled.div`
   position: absolute;
   right: 24px;
 `;

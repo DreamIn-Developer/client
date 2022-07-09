@@ -12,13 +12,14 @@ export interface User {
   scrapCount: number;
   followerCount: number;
   followingCount: number;
+  isFollowed: boolean;
 }
 
 export interface UserEditForm {
-  email: string;
-  nickname: string;
-  description: string;
-  profileImage: string;
-  backgroundImage: string;
-  categories: string;
+  nickname?: string;
+  email?: User['email'];
+  description?: string;
+  profileImage?: string;
+  backgroundImage?: string;
+  categories?: string;
 }
