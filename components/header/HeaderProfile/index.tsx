@@ -10,6 +10,7 @@ const HeaderProfile = ({ userInfo }) => {
   const Logout = () => {
     sessionStorage.removeItem('id');
     sessionStorage.removeItem('jwtToken');
+    router.push(`/`);
     location.reload();
   };
 

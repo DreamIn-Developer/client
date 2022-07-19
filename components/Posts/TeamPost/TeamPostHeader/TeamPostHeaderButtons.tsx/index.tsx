@@ -1,47 +1,39 @@
 import styled from 'styled-components';
 import { PostType } from 'types/post';
 import Image from 'next/image';
-import postsApi from 'apis/posts.api';
-import usersApi from 'apis/users.api';
 import Login from 'components/Login';
 import useModal from 'hooks/useModal';
-import { User } from 'types/user';
 import { isLoggedIn } from 'utils/isLoggedIn';
 import { useMutation, useQuery, useQueryClient } from 'react-query';
+import TeamPostsAPI from 'apis/teamPosts.api';
 
 interface data {
   status?: number;
 }
-const PostHeaderButtons = ({ postId, user }: { postId: number; user: User }) => {
+const TeamPostHeaderButtons = ({ postId }: { postId: number }) => {
   const getPost = async () => {
-    const data = await postsApi.getPost(postId, { isRequiredLogin: isLoggedIn() });
+    const data = await TeamPostsAPI.getTeamPost(postId, { isRequiredLogin: isLoggedIn() });
     return data;
   };
+
   const { data, isLoading } = useQuery<PostType>('post', getPost);
   const { setModalVisible, isShowing } = useModal();
   const queryClient = useQueryClient();
-  const isOwnPost = user.id.toString() === sessionStorage.getItem('id');
   const post = data;
 
-  const likePostMutate = useMutation(() => postsApi.likePost(postId, { isRequiredLogin: isLoggedIn() }), {
+  const likePostMutate = useMutation(() => TeamPostsAPI.likeTeamPost(postId, { isRequiredLogin: isLoggedIn() }), {
     onSuccess: (data: data) => {
       data.status === 401 ? setModalVisible() : queryClient.invalidateQueries('post');
     },
   });
-  const scrapPostMutate = useMutation(() => postsApi.scrapPost(postId, { isRequiredLogin: isLoggedIn() }), {
+  const scrapPostMutate = useMutation(() => TeamPostsAPI.scrapTeamPost(postId, { isRequiredLogin: isLoggedIn() }), {
     onSuccess: (data: data) => {
       data.status === 401 ? setModalVisible() : queryClient.invalidateQueries('post');
-    },
-  });
-  const followUserMutate = useMutation(() => usersApi.followUser(post.author, { isRequiredLogin: isLoggedIn() }), {
-    onSuccess: (data: data) => {
-      data.status === 401 ? setModalVisible() : queryClient.invalidateQueries();
     },
   });
 
   const handlePostLike = () => likePostMutate.mutate();
   const handlePostScrap = () => scrapPostMutate.mutate();
-  const handleUserFollow = () => followUserMutate.mutate();
 
   return isLoading ? (
     <div>Loading..</div>
@@ -70,22 +62,12 @@ const PostHeaderButtons = ({ postId, user }: { postId: number; user: User }) => 
         </ImageWrapper>
         <ButtonName>스크랩</ButtonName>
       </ButtonWrapper>
-      {isOwnPost ? (
-        ''
-      ) : (
-        <ButtonWrapper onClick={handleUserFollow}>
-          <FollowImageWrapper isFollowing={user.isFollowed}>
-            <ButtonImage alt="follow_btn" src="/images/add.svg" width="22px" height="22px" />
-          </FollowImageWrapper>
-          <ButtonName>팔로우</ButtonName>
-        </ButtonWrapper>
-      )}
       <Login isShowing={isShowing} setModalVisible={setModalVisible} />
     </HeaderButtonsWrapper>
   );
 };
 
-export default PostHeaderButtons;
+export default TeamPostHeaderButtons;
 
 const HeaderButtonsWrapper = styled.div`
   display: flex;
@@ -109,10 +91,6 @@ const ImageWrapper = styled.div<{ isFollowing?: boolean }>`
   margin-bottom: 4px;
   border-radius: 50%;
   background-color: #eeeeee;
-`;
-
-const FollowImageWrapper = styled(ImageWrapper)<{ isFollowing?: boolean }>`
-  background-color: ${(props) => props.isFollowing && '#E4FACC'};
 `;
 
 const ButtonImage = styled(Image)``;
